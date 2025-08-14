@@ -11,5 +11,53 @@ export default defineSchema({
       .index("by_token",["tokenIdentifier"])
       .index("by_email",["email"])
       .searchIndex("search_name",{ searchField: "name"})
-      .searchIndex("search_email",{ searchField: "email"})
-})
+      .searchIndex("search_email",{ searchField: "email"}),
+
+   expenses:defineTable ({
+    description:v.string(),
+    amount:v.number(),
+    catergory:v.optional(v.string()),
+    date:v.number(),
+    paidByUserId:v.id("users"), // user table ka reference
+    splitTybe: v.string(), // "equal" ya "unequal" or percentage
+    spilits: v.array(v.object({
+      userId: v.id("users"), // user table ka reference
+      amount: v.number(), // jitna amount usne pay kiya
+      paid: v.boolean(), // agar unequal split hai toh percentage
+    })),
+    groupId: v.optional(v.id("groups")), // agar group expense hai toh group ka reference null
+    createdBy: v.id("users"), // jisne expense create kiy (Reference to users table)
+   }) 
+   .index("by_group", ["groupId"])
+   .index("by_user_and_group",["paidByUserId", "groupId"])
+   .index("by_date", ["date"]),
+   // Settlements
+  settlements: defineTable({
+    amount: v.number(),
+    note: v.optional(v.string()),
+    date: v.number(), // timestamp
+    paidByUserId: v.id("users"), // Reference to users table
+    receivedByUserId: v.id("users"), // Reference to users table
+    groupId: v.optional(v.id("groups")), // null for one-on-one settlements
+    relatedExpenseIds: v.optional(v.array(v.id("expenses"))), // Which expenses this settlement covers
+    createdBy: v.id("users"), // Reference to users table
+  })
+    .index("by_group", ["groupId"])
+    .index("by_user_and_group", ["paidByUserId", "groupId"])
+    .index("by_receiver_and_group", ["receivedByUserId", "groupId"])
+    .index("by_date", ["date"]),
+
+  // Groups
+  groups: defineTable({
+    name: v.string(),
+    description: v.optional(v.string()),
+    createdBy: v.id("users"), // Reference to users table
+    members: v.array(
+      v.object({
+        userId: v.id("users"), // Reference to users table
+        role: v.string(), // "admin" or "member"
+        joinedAt: v.number(),
+      })
+    ),
+  }),
+});
