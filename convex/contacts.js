@@ -1,81 +1,91 @@
-// api for aal the contacts related operations
-
-import { convexToJson, v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+// convex/contacts. api bnao 
+import { query, mutation } from "./_generated/server";
+import { v } from "convex/values";
 import { internal } from "./_generated/api";
 
-export const getAllContacts = query({
-  //ye function sabhi contacts ko fetch karega jo one on one hai or jo group me hai
-  handler: async (ctx) => {
-    const currentUser = await ctx.runQuery(internal.users.getCurrentUser); // ye internal query hai jo internal run hoti hai and we can use it to get the current user again and again
 
+//   1. getAllContacts – 1-to-1 expense contacts + groups
+
+export const getAllContacts = query({
+  handler: async (ctx) => {
+    // Centralized getCurrentUser call se current logged-in user ka data lao
+    const currentUser = await ctx.runQuery(internal.users.getCurrentUser);
+
+    //Personal expenses jisme aap payer ho 
     const expensesYouPaid = await ctx.db
       .query("expenses")
-      .withIndex("by_user_and_group", (q) => {
-        // ye index use karega jo paidByUserId and groupId ke basis pe expenses ko fetch karega
-        q.eq("paidByUserId", currentUser._id).eq("groupId", undefined);
-      })
-      .collect(); // collect() function use karega to get all the expenses you paid
+      .withIndex("by_user_and_group", (q) =>
+        q.eq("paidByUserId", currentUser._id).eq("groupId", undefined) // groupId undefined → 1-to-1 expense
+      )
+      .collect();
 
+    //Personal expenses jisme aap payer nahi ho 
     const expensesNotPaidByYou = (
       await ctx.db
         .query("expenses")
-        .withIndex("by_group", (q) => {
-          // ye index use krega jo paise apne nhi pay kiye hai or the payment not done by you
-          q.eq("groupId", undefined);
-        })
+        .withIndex("by_group", (q) => q.eq("groupId", undefined)) // sirf 1-to-1 wale
         .collect()
     ).filter(
       (e) =>
-        e.paidByUserId !== currentUser._id &&
-        e.splits.some((s) => s.userId === currentUser._id)
-    ); // Pehle saare items collect karo, phir sirf unko rakhna jisme paidByUserId current user ka ID na ho aur splits present ho
+        e.paidByUserId !== currentUser._id && // aap payer nahi ho
+        e.splits.some((s) => s.userId === currentUser._id) // split me aap ho
+    );
 
-    const personalExpenses = [...expensesYouPaid, ...expensesNotPaidByYou]; // combine krega jo expenses pay kiya hia ya nahi kiye hai
+    // Dono type ke expenses ko ek saath merge karo
+    const personalExpenses = [...expensesYouPaid, ...expensesNotPaidByYou];
 
+    // Unique contact IDs nikaalo 
     const contactIds = new Set();
-    personalExpenses.forEach((exp) => {
-      if (exp.paidByUserId != currentUser._id) contactIds.add(exp.paidByUserId); // Agar expense current user ne pay nahi kiya, toh uska paidByUserId contact list me add karo
 
+    personalExpenses.forEach((exp) => {
+      // Agar current user payer nahi hai toh payer ka ID add karo
+      if (exp.paidByUserId !== currentUser._id)
+        contactIds.add(exp.paidByUserId);
+
+      // Har split ka user ID check karo, agar current user nahi hai toh add karo
       exp.splits.forEach((s) => {
-        if (s.userId != currentUser._id) contactIds.add(s.userId); // Har split check karo, agar userId current user ka nahi hai toh usko contact list me add karo
+        if (s.userId !== currentUser._id) contactIds.add(s.userId);
       });
     });
 
-    const contactuser = await Promise.all(
+    //  Contact users ka data DB se lao 
+    const contactUsers = await Promise.all(
       [...contactIds].map(async (id) => {
         const u = await ctx.db.get(id);
-
-        return u // Har contactId ke liye DB se user details lao, agar user mila toh uska info object banao, warna null return karo
+        return u
           ? {
               id: u._id,
               name: u.name,
               email: u.email,
-              imageurl: u.imageUrl,
-              type: "user", // add a type marker to distinguish from groups
+              imageUrl: u.imageUrl,
+              type: "user", // type "user" rakha taki group se differentiate ho
             }
           : null;
       })
     );
 
+    //  Groups jisme current user member hai
     const userGroups = (await ctx.db.query("groups").collect())
-      .filter((g) => g.members.some((m) => m.userId === currentUser._id)) // DB se saare groups lao, phir filter karo jisme current user member hai
+      .filter((g) => g.members.some((m) => m.userId === currentUser._id))
       .map((g) => ({
         id: g._id,
         name: g.name,
         description: g.description,
         memberCount: g.members.length,
         type: "group",
-      })); // Us group ka basic info object banao (id, name, description, member count, type)// Us group ka basic info object banao (id, name, description, member count, type)
+      }));
 
-    // Alphabetically sort karo: pehle users, phir groups
-    contactuser.sort((a, b) => a?.name.localeCompare(b?.name)); // Null entries hatao users list se
+    //Alphabetical sorting 
+    contactUsers.sort((a, b) => a?.name.localeCompare(b?.name));
     userGroups.sort((a, b) => a.name.localeCompare(b.name));
 
-    return { users: contactuser.filter(Boolean), groups: userGroups }; // Users aur groups ka object return karo
+    // Null hata ke clean users aur groups return karo
+    return { users: contactUsers.filter(Boolean), groups: userGroups };
   },
 });
 
+
+  //  2. createGroup – Naya group create karo
 
 export const createGroup = mutation({
   args: {
@@ -84,28 +94,31 @@ export const createGroup = mutation({
     members: v.array(v.id("users")),
   },
   handler: async (ctx, args) => {
-    // Use the centralized getCurrentUser instead of duplicating auth logic
+    // Centralized getCurrentUser call se current logged-in user ka data lao
     const currentUser = await ctx.runQuery(internal.users.getCurrentUser);
 
+    // Group ka naam empty nahi ho sakta
     if (!args.name.trim()) throw new Error("Group name cannot be empty");
 
+    // Members ka set banao aur creator ka ID add karo
     const uniqueMembers = new Set(args.members);
-    uniqueMembers.add(currentUser._id); // ensure creator
+    uniqueMembers.add(currentUser._id);
 
-    // Validate that all member users exist
+    // Har member ka existence validate karo
     for (const id of uniqueMembers) {
       if (!(await ctx.db.get(id)))
         throw new Error(`User with ID ${id} not found`);
     }
 
-    return await ctx.db.insert("groups", { //Groups table me naya group insert karo:
-      name: args.name.trim(), // Name aur description trim karke store karo
-      description: args.description?.trim() ?? "", 
-      createdBy: currentUser._id, // createdBy me current user ka ID daalo
-      members: [...uniqueMembers].map((id) => ({ // members list me har unique member ka object banao, 
+    // Naya group DB me insert karo
+    return await ctx.db.insert("groups", {
+      name: args.name.trim(),
+      description: args.description?.trim() ?? "",
+      createdBy: currentUser._id,
+      members: [...uniqueMembers].map((id) => ({
         userId: id,
-        role: id === currentUser._id ? "admin" : "member", // agar current user hai toh role "admin" warna "member" set karo,
-        joinedAt: Date.now(), // joinedAt me current time save karo
+        role: id === currentUser._id ? "admin" : "member", // creator = admin
+        joinedAt: Date.now(),
       })),
     });
   },
