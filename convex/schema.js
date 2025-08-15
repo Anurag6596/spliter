@@ -16,11 +16,11 @@ export default defineSchema({
    expenses:defineTable ({
     description:v.string(),
     amount:v.number(),
-    catergory:v.optional(v.string()),
+    category:v.optional(v.string()),
     date:v.number(),
     paidByUserId:v.id("users"), // user table ka reference
-    splitTybe: v.string(), // "equal" ya "unequal" or percentage
-    spilits: v.array(v.object({
+    splitType: v.string(), // "equal" ya "unequal" or percentage
+    splits: v.array(v.object({
       userId: v.id("users"), // user table ka reference
       amount: v.number(), // jitna amount usne pay kiya
       paid: v.boolean(), // agar unequal split hai toh percentage

@@ -1,4 +1,4 @@
-import { mutation } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 
 export const store = mutation({  //ye data ko manipulate krne k liye use kiya hai
   args: {},
@@ -30,3 +30,25 @@ export const store = mutation({  //ye data ko manipulate krne k liye use kiya ha
     });
   },
 });
+
+export const getCurrentUser = query({
+  handler: async (ctx)=>{
+    const identity = await ctx.auth.getUserIdentity(); // ye current user ki identity ko fetch karega
+    if(!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const user = await ctx.db // ye user ko fetch karega using identity
+      .query("users")
+      .withIndex("by_token", (q) => {
+        return q.eq("tokenIdentifier", identity.tokenIdentifier);
+      })
+      .first();
+
+      // agar user nahi mila toh error throw karega
+      if(!user) {
+        throw new Error("User not found");
+      }
+      return user;
+  },
+})
