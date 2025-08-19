@@ -126,8 +126,10 @@ const ContactsPage = () => {
       {/* create the group models */}
       <CreateGroupModal
         isOpen={isCreateGroupModalOpen}
-        onClose={()=>setIsCreateGroupModalOpen(false)}
-        onSuccess={(groupId)=> router.push(`/groups/${groupId}`)}
+        onClose={() => setIsCreateGroupModalOpen(false)}
+        onSuccess={(groupId) => {
+          router.push(`/groups/${groupId}`);
+        }}
       />
     </div>
   );
