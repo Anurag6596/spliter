@@ -10,11 +10,16 @@ import Link from "next/link";
 // import { useConvex, useQuery } from 'convex/react'
 import React, { useState } from "react";
 import { BarLoader } from "react-spinners";
+import CreateGroupModal from "./_components/create-group-modal";
+import { useRouter } from "next/navigation";
 
 const ContactsPage = () => {
   const [isCreateGroupModalOpen, setIsCreateGroupModalOpen] = useState(false);
 
   const { data, isLoading } = useConvexQuery(api.contacts.getAllContacts); // API se saare contacts ka data fetch karo (real-time updates ke saath)
+
+  const router = useRouter() // ye hooke user ko dynamically push krne k liye use kr rhe hai
+
   //    console.log(data);
   if (isLoading) {
     return (
@@ -36,14 +41,13 @@ const ContactsPage = () => {
         </Button>
       </div>
 
-      <div className="grid gird-cols-1 md:grid-cols-2 gap-6">
-        {/* individual contact */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Individual Contacts */}
         <div>
           <h2 className="text-xl font-bold mb-4 flex items-center">
             <User className="mr-2 h-5 w-5" />
             People
           </h2>
-
           {users.length === 0 ? (
             <Card>
               <CardContent className="py-6 text-center text-muted-foreground">
@@ -80,10 +84,10 @@ const ContactsPage = () => {
           )}
         </div>
 
-        {/* group contacts */}
+        {/* Groups */}
         <div>
           <h2 className="text-xl font-bold mb-4 flex items-center">
-            <User className="mr-2 h-5 w-5" />
+            <Users className="mr-2 h-5 w-5" />
             Groups
           </h2>
           {groups.length === 0 ? (
@@ -100,7 +104,7 @@ const ContactsPage = () => {
                     <CardContent className="py-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="bg-primary/10 p-2 rounded-md">
+                          <div className="bg-primary/10 p-2 runded-md">
                             <Users className="h-6 w-6 text-primary" />
                           </div>
                           <div>
@@ -119,6 +123,12 @@ const ContactsPage = () => {
           )}
         </div>
       </div>
+      {/* create the group models */}
+      <CreateGroupModal
+        isOpen={isCreateGroupModalOpen}
+        onClose={()=>setIsCreateGroupModalOpen(false)}
+        onSuccess={(groupId)=> router.push(`/groups/${groupId}`)}
+      />
     </div>
   );
 };
