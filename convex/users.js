@@ -1,4 +1,6 @@
+import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 export const store = mutation({  //ye data ko manipulate krne k liye use kiya hai
   args: {},
@@ -50,5 +52,53 @@ export const getCurrentUser = query({
         throw new Error("User not found");
       }
       return user;
+  },
+})
+
+
+export const searchUsers = query({
+  args: {query: v.string() },
+  handler:async(ctx, args)=>{
+    // Centralized function se current user nikal rahe hain
+    const currentUser = await ctx.runQuery(internal.users.getCurrentUser);
+
+
+    // Agar query bahut chhoti hai (<2 letters), to search mat karo
+    if (args.query.length < 2) {
+      return [];
+    }
+
+     // Users collection me search karo by "name"
+    // Yaha pe humne "search_name" index banaya hai usko use kar rahe hain
+    const nameResults = await ctx.db
+      .query("users")
+      .withSearchIndex("search_name", (q) => q.search("name", args.query))
+      .collect();
+
+      // Users collection me query kar rahe hain
+    const emailResults = await ctx.db
+      .query("users")
+      // "search_email" index use karke email field pe search karenge
+      .withSearchIndex("search_email",(q)=> q.search("email", args.query))
+      //results ko collect krke array me le aayenge 
+      .collect()
+
+
+    const users = [
+      ...nameResults,
+      ...emailResults.filter(
+        (email)=> !nameResults.some((name)=> name._id === email._id)
+      ),
+    ];
+
+    // Exclude current user and format results
+     return users
+      .filter((user) => user._id !== currentUser._id)
+      .map((user) => ({
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        imageUrl: user.imageUrl,
+      }));
   },
 })
