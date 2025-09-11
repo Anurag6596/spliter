@@ -129,7 +129,7 @@ const ContactsPage = () => {
         onClose={() => setIsCreateGroupModalOpen(false)}
         onSuccess={(groupId) => {
           router.push(`/groups/${groupId}`);
-        }}
+        }} 
       />
     </div>
   );
