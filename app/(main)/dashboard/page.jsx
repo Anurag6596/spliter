@@ -13,6 +13,9 @@ import { PlusCircle } from "lucide-react";
 import Link from "next/link";
 import React from "react";
 import { BarLoader } from "react-spinners";
+import ExpenseSummary from "./components/expense-summary";
+import BalanceSummary from "./components/balance-summary";
+import GroupList from "./components/group-list";
 
 const DashboardPage = () => {
   const { data: balances, isLoading: balancesLoading } = useConvexQuery(
@@ -134,6 +137,36 @@ const DashboardPage = () => {
                 )}
               </CardContent>
             </Card>
+          </div>
+
+          <div className="grid grid-cols-1 grid-cols-3 gpa-6">
+            {/* left cols */}
+                <div className="lg:cols-span-2 space-y-6">
+                  {/* Expense summary \ */}
+                  <ExpenseSummary 
+                  monthlySpending={monthlySpending}
+                  totalSpent={totalSpent}
+                  />
+                </div>
+
+            {/* right cols */}
+            <div className="sapce-y-6 ">
+              {/* balance details */}
+              <Card>
+              <CardHeader className="pb-2">
+                <CardTitle>
+                  Balance Details
+                </CardTitle>
+                <CardAction>Card Action</CardAction>
+              </CardHeader>
+              <CardContent>
+               
+              </CardContent>
+            </Card>
+
+              {/* groups */}
+              <GroupList />
+            </div>
           </div>
         </>
       )}
