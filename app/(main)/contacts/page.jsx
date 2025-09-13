@@ -8,10 +8,10 @@ import { useConvexQuery } from "@/hooks/use-convex-query";
 import { Plus, User, Users } from "lucide-react";
 import Link from "next/link";
 // import { useConvex, useQuery } from 'convex/react'
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { BarLoader } from "react-spinners";
 import CreateGroupModal from "./_components/create-group-modal";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 const ContactsPage = () => {
   const [isCreateGroupModalOpen, setIsCreateGroupModalOpen] = useState(false);
@@ -19,6 +19,20 @@ const ContactsPage = () => {
   const { data, isLoading } = useConvexQuery(api.contacts.getAllContacts); // API se saare contacts ka data fetch karo (real-time updates ke saath)
 
   const router = useRouter() // ye hooke user ko dynamically push krne k liye use kr rhe hai
+ const searchParams =  useSearchParams()
+
+ useEffect (() => {
+  const createGroupParam = searchParams.get("createGroup");
+
+  if(createGroupParam === "true"){
+    setIsCreateGroupModalOpen(true);
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete("createGroup");
+
+    router.replace(url.pathname + url.search); // ye user ko current page pr hi rkhne k liye hai (page reload nhi hoga
+  }
+ },[searchParams,router])
 
   //    console.log(data);
   if (isLoading) {
