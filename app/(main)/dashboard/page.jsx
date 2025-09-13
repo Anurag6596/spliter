@@ -49,7 +49,7 @@ const DashboardPage = () => {
         <>
           {/* Header */}
           <div className="flex items-center justify-between">
-            <h1 className="text-4xl font-extrabold bg-gradient-to-r from-indigo-500 to-pink-500 bg-clip-text text-transparent">
+            <h1 className="text-4xl font-extrabold gradient-title bg-clip-text text-transparent">
               Dashboard
             </h1>
 
